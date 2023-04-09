@@ -23,6 +23,7 @@ import type { ViewUpdate, PluginValue } from '@codemirror/view';
 import type { Text } from '@codemirror/state';
 import type * as LSP from 'vscode-languageserver-protocol';
 import { Transport } from '@open-rpc/client-js/build/transports/Transport';
+import { marked } from 'marked';
 
 const timeout = 10000;
 const changesDelay = 500;
@@ -319,6 +320,12 @@ class LanguageServerPlugin implements PluginValue {
         });
         if (!result) return null;
         const { contents, range } = result;
+        if (Array.isArray(contents) || typeof contents === 'string') {
+            if (contents.length === 0) return;
+        } else {
+            if (contents.value === '') return;
+        }
+
         let pos = posToOffset(view.state.doc, { line, character })!;
         let end: number;
         if (range) {
@@ -328,7 +335,7 @@ class LanguageServerPlugin implements PluginValue {
         if (pos === null) return null;
         const dom = document.createElement('div');
         dom.classList.add('documentation');
-        if (this.allowHTMLContent) dom.innerHTML = formatContents(contents);
+        if (this.allowHTMLContent) dom.innerHTML = marked.parse(formatContents(contents));
         else dom.textContent = formatContents(contents);
         return { pos, end, create: (view) => ({ dom }), above: true };
     }
@@ -489,7 +496,8 @@ export function languageServer(options: LanguageServerWebsocketOptions){
     delete options.serverUri;
     return languageServerWithTransport({
         ...options,
-        transport: new WebSocketTransport(serverUri)
+        transport: new WebSocketTransport(serverUri),
+        allowHTMLContent: true
     })
 }
 
